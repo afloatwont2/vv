@@ -1,0 +1,54 @@
+% AIM: ECG signal classification using SVM (with real labels)
+clc; clear all; close all;
+
+% Step 1: Load ECG Signal 
+[ecg_signal, fs] = rdsamp('100');  
+ecg_signal = ecg_signal(:, 1);  % Ensure it's a 1D vector
+
+% Step 2: Load Annotations (Real Labels)
+[ann_times, ann_types] = rdann('100', 'pwave'); % Load annotation times & types
+
+% Step 3: Extract Features (Mean & Standard Deviation)
+window_size = fs * 1; % 1-second windows
+num_samples = floor(length(ecg_signal) / window_size);
+features = zeros(num_samples, 2);
+labels = zeros(num_samples, 1); % Placeholder for real labels
+
+% Step 4: Assign Real Labels Based on Annotations
+for i = 1:num_samples
+    % Get the segment of ECG signal
+    segment_start = (i-1) * window_size + 1;
+    segment_end = i * window_size;
+    segment = ecg_signal(segment_start : segment_end);
+    
+    % Compute features (mean & std deviation)
+    features(i, :) = [mean(segment), std(segment)];
+    
+    % Find if annotation falls within this segment
+    if any(ann_times >= segment_start & ann_times <= segment_end)
+        labels(i) = 1; % Mark as 'P-wave present'
+    else
+        labels(i) = 0; % Mark as 'No P-wave'
+    end
+end
+
+% Step 5: Train SVM Classifier
+svm_model = fitcsvm(features, labels, 'KernelFunction', 'linear'); % Linear SVM
+
+% Step 6: Predict & Evaluate
+predicted_labels = predict(svm_model, features);
+accuracy = sum(predicted_labels == labels) / length(labels) * 100;
+fprintf('Classification Accuracy (SVM): %.2f%%\n', accuracy);
+
+% Step 7: Confusion Matrix
+conf_matrix = confusionmat(labels, predicted_labels);
+disp('Confusion Matrix:');
+disp(conf_matrix);
+
+% Visualize Confusion Matrix
+figure;
+confusionchart(conf_matrix, [0, 1]); % Ensure labels are 0 and 1
+title('Confusion Matrix for ECG Classification (SVM)');
+xlabel('Predicted Class');
+ylabel('True Class');
+
